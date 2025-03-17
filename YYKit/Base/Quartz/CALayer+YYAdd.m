@@ -19,11 +19,26 @@ YYSYNTH_DUMMY_CLASS(CALayer_YYAdd)
 @implementation CALayer (YYAdd)
 
 - (UIImage *)snapshotImage {
-    UIGraphicsBeginImageContextWithOptions(self.bounds.size, self.opaque, 0);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    [self renderInContext:context];
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = self.opaque;
+        format.scale = 0;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:self.bounds.size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGContextRef context = UIGraphicsGetCurrentContext();
+            [weakSelf renderInContext:context];
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(self.bounds.size, self.opaque, 0);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        [self renderInContext:context];
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+    }
+
     return image;
 }
 

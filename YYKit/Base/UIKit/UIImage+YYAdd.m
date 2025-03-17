@@ -253,23 +253,57 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
 + (UIImage *)imageWithColor:(UIColor *)color size:(CGSize)size {
     if (!color || size.width <= 0 || size.height <= 0) return nil;
     CGRect rect = CGRectMake(0.0f, 0.0f, size.width, size.height);
-    UIGraphicsBeginImageContextWithOptions(rect.size, NO, 0);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    CGContextSetFillColorWithColor(context, color.CGColor);
-    CGContextFillRect(context, rect);
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = 0;
+            
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:rect.size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGContextRef context = UIGraphicsGetCurrentContext();
+            CGContextSetFillColorWithColor(context, color.CGColor);
+            CGContextFillRect(context, rect);
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(rect.size, NO, 0);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        CGContextSetFillColorWithColor(context, color.CGColor);
+        CGContextFillRect(context, rect);
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+    }
+    
+    
     return image;
 }
 
 + (UIImage *)imageWithSize:(CGSize)size drawBlock:(void (^)(CGContextRef context))drawBlock {
     if (!drawBlock) return nil;
-    UIGraphicsBeginImageContextWithOptions(size, NO, 0);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    if (!context) return nil;
-    drawBlock(context);
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = 0;
+            
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGContextRef context = UIGraphicsGetCurrentContext();
+            if (context){
+                drawBlock(context);
+            }
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(size, NO, 0);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        if (!context) return nil;
+        drawBlock(context);
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+    }
+
     return image;
 }
 
@@ -301,19 +335,49 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
 
 - (UIImage *)imageByResizeToSize:(CGSize)size {
     if (size.width <= 0 || size.height <= 0) return nil;
-    UIGraphicsBeginImageContextWithOptions(size, NO, self.scale);
-    [self drawInRect:CGRectMake(0, 0, size.width, size.height)];
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = self.scale;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            [weakSelf drawInRect:CGRectMake(0, 0, size.width, size.height)];
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(size, NO, self.scale);
+        [self drawInRect:CGRectMake(0, 0, size.width, size.height)];
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+    }
+
     return image;
 }
 
 - (UIImage *)imageByResizeToSize:(CGSize)size contentMode:(UIViewContentMode)contentMode {
     if (size.width <= 0 || size.height <= 0) return nil;
-    UIGraphicsBeginImageContextWithOptions(size, NO, self.scale);
-    [self drawInRect:CGRectMake(0, 0, size.width, size.height) withContentMode:contentMode clipsToBounds:NO];
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = self.scale;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            [weakSelf drawInRect:CGRectMake(0, 0, size.width, size.height) withContentMode:contentMode clipsToBounds:NO];
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(size, NO, self.scale);
+        [self drawInRect:CGRectMake(0, 0, size.width, size.height) withContentMode:contentMode clipsToBounds:NO];
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+    }
+    
     return image;
 }
 
@@ -335,20 +399,45 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
     size.height -= insets.top + insets.bottom;
     if (size.width <= 0 || size.height <= 0) return nil;
     CGRect rect = CGRectMake(-insets.left, -insets.top, self.size.width, self.size.height);
-    UIGraphicsBeginImageContextWithOptions(size, NO, self.scale);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    if (color) {
-        CGContextSetFillColorWithColor(context, color.CGColor);
-        CGMutablePathRef path = CGPathCreateMutable();
-        CGPathAddRect(path, NULL, CGRectMake(0, 0, size.width, size.height));
-        CGPathAddRect(path, NULL, rect);
-        CGContextAddPath(context, path);
-        CGContextEOFillPath(context);
-        CGPathRelease(path);
+    
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = self.scale;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGContextRef context = UIGraphicsGetCurrentContext();
+            if (color) {
+                CGContextSetFillColorWithColor(context, color.CGColor);
+                CGMutablePathRef path = CGPathCreateMutable();
+                CGPathAddRect(path, NULL, CGRectMake(0, 0, size.width, size.height));
+                CGPathAddRect(path, NULL, rect);
+                CGContextAddPath(context, path);
+                CGContextEOFillPath(context);
+                CGPathRelease(path);
+            }
+            [weakSelf drawInRect:rect];
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(size, NO, self.scale);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        if (color) {
+            CGContextSetFillColorWithColor(context, color.CGColor);
+            CGMutablePathRef path = CGPathCreateMutable();
+            CGPathAddRect(path, NULL, CGRectMake(0, 0, size.width, size.height));
+            CGPathAddRect(path, NULL, rect);
+            CGContextAddPath(context, path);
+            CGContextEOFillPath(context);
+            CGPathRelease(path);
+        }
+        [self drawInRect:rect];
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
     }
-    [self drawInRect:rect];
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    
     return image;
 }
 
@@ -381,38 +470,79 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
         corners = tmp;
     }
     
-    UIGraphicsBeginImageContextWithOptions(self.size, NO, self.scale);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    CGRect rect = CGRectMake(0, 0, self.size.width, self.size.height);
-    CGContextScaleCTM(context, 1, -1);
-    CGContextTranslateCTM(context, 0, -rect.size.height);
-    
-    CGFloat minSize = MIN(self.size.width, self.size.height);
-    if (borderWidth < minSize / 2) {
-        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(rect, borderWidth, borderWidth) byRoundingCorners:corners cornerRadii:CGSizeMake(radius, borderWidth)];
-        [path closePath];
+    UIImage *image;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = self.scale;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:self.size format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGContextRef context = UIGraphicsGetCurrentContext();
+            CGRect rect = CGRectMake(0, 0, weakSelf.size.width, weakSelf.size.height);
+            CGContextScaleCTM(context, 1, -1);
+            CGContextTranslateCTM(context, 0, -rect.size.height);
+            
+            CGFloat minSize = MIN(weakSelf.size.width, weakSelf.size.height);
+            if (borderWidth < minSize / 2) {
+                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(rect, borderWidth, borderWidth) byRoundingCorners:corners cornerRadii:CGSizeMake(radius, borderWidth)];
+                [path closePath];
+                
+                CGContextSaveGState(context);
+                [path addClip];
+                CGContextDrawImage(context, rect, weakSelf.CGImage);
+                CGContextRestoreGState(context);
+            }
+            
+            if (borderColor && borderWidth < minSize / 2 && borderWidth > 0) {
+                CGFloat strokeInset = (floor(borderWidth * weakSelf.scale) + 0.5) / weakSelf.scale;
+                CGRect strokeRect = CGRectInset(rect, strokeInset, strokeInset);
+                CGFloat strokeRadius = radius > weakSelf.scale / 2 ? radius - weakSelf.scale / 2 : 0;
+                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:strokeRect byRoundingCorners:corners cornerRadii:CGSizeMake(strokeRadius, borderWidth)];
+                [path closePath];
+                
+                path.lineWidth = borderWidth;
+                path.lineJoinStyle = borderLineJoin;
+                [borderColor setStroke];
+                [path stroke];
+            }
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(self.size, NO, self.scale);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        CGRect rect = CGRectMake(0, 0, self.size.width, self.size.height);
+        CGContextScaleCTM(context, 1, -1);
+        CGContextTranslateCTM(context, 0, -rect.size.height);
         
-        CGContextSaveGState(context);
-        [path addClip];
-        CGContextDrawImage(context, rect, self.CGImage);
-        CGContextRestoreGState(context);
+        CGFloat minSize = MIN(self.size.width, self.size.height);
+        if (borderWidth < minSize / 2) {
+            UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(rect, borderWidth, borderWidth) byRoundingCorners:corners cornerRadii:CGSizeMake(radius, borderWidth)];
+            [path closePath];
+            
+            CGContextSaveGState(context);
+            [path addClip];
+            CGContextDrawImage(context, rect, self.CGImage);
+            CGContextRestoreGState(context);
+        }
+        
+        if (borderColor && borderWidth < minSize / 2 && borderWidth > 0) {
+            CGFloat strokeInset = (floor(borderWidth * self.scale) + 0.5) / self.scale;
+            CGRect strokeRect = CGRectInset(rect, strokeInset, strokeInset);
+            CGFloat strokeRadius = radius > self.scale / 2 ? radius - self.scale / 2 : 0;
+            UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:strokeRect byRoundingCorners:corners cornerRadii:CGSizeMake(strokeRadius, borderWidth)];
+            [path closePath];
+            
+            path.lineWidth = borderWidth;
+            path.lineJoinStyle = borderLineJoin;
+            [borderColor setStroke];
+            [path stroke];
+        }
+        
+        image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
     }
     
-    if (borderColor && borderWidth < minSize / 2 && borderWidth > 0) {
-        CGFloat strokeInset = (floor(borderWidth * self.scale) + 0.5) / self.scale;
-        CGRect strokeRect = CGRectInset(rect, strokeInset, strokeInset);
-        CGFloat strokeRadius = radius > self.scale / 2 ? radius - self.scale / 2 : 0;
-        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:strokeRect byRoundingCorners:corners cornerRadii:CGSizeMake(strokeRadius, borderWidth)];
-        [path closePath];
-        
-        path.lineWidth = borderWidth;
-        path.lineJoinStyle = borderLineJoin;
-        [borderColor setStroke];
-        [path stroke];
-    }
-    
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
     return image;
 }
 
@@ -500,13 +630,30 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
 }
 
 - (UIImage *)imageByTintColor:(UIColor *)color {
-    UIGraphicsBeginImageContextWithOptions(self.size, NO, self.scale);
-    CGRect rect = CGRectMake(0, 0, self.size.width, self.size.height);
-    [color set];
-    UIRectFill(rect);
-    [self drawAtPoint:CGPointMake(0, 0) blendMode:kCGBlendModeDestinationIn alpha:1];
-    UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    UIImage *newImage;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = NO;
+        format.scale = self.scale;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:self.size format:format];
+        newImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGRect rect = CGRectMake(0, 0, weakSelf.size.width, weakSelf.size.height);
+            [color set];
+            UIRectFill(rect);
+            [weakSelf drawAtPoint:CGPointMake(0, 0) blendMode:kCGBlendModeDestinationIn alpha:1];
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(self.size, NO, self.scale);
+        CGRect rect = CGRectMake(0, 0, self.size.width, self.size.height);
+        [color set];
+        UIRectFill(rect);
+        [self drawAtPoint:CGPointMake(0, 0) blendMode:kCGBlendModeDestinationIn alpha:1];
+        newImage = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+    }
+    
     return newImage;
 }
 
@@ -581,7 +728,7 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
         return [self _yy_mergeImageRef:imageRef tintColor:tintColor tintBlendMode:tintBlendMode maskImage:maskImage opaque:opaque];
     }
     
-    vImage_Buffer effect = { 0 }, scratch = { 0 };
+    __block vImage_Buffer effect = { 0 }, scratch = { 0 };
     vImage_Buffer *input = NULL, *output = NULL;
     
     vImage_CGImageFormat format = {
@@ -594,6 +741,7 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
         .renderingIntent = kCGRenderingIntentDefault
     };
     
+    UIImage *effectImage;
     if (hasNewFunc) {
         vImage_Error err;
         err = vImageBuffer_InitWithCGImage(&effect, &format, NULL, imageRef, kvImagePrintDiagnosticsToConsole);
@@ -607,22 +755,56 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
             return nil;
         }
     } else {
-        UIGraphicsBeginImageContextWithOptions(size, opaque, scale);
-        CGContextRef effectCtx = UIGraphicsGetCurrentContext();
-        CGContextScaleCTM(effectCtx, 1.0, -1.0);
-        CGContextTranslateCTM(effectCtx, 0, -size.height);
-        CGContextDrawImage(effectCtx, rect, imageRef);
-        effect.data     = CGBitmapContextGetData(effectCtx);
-        effect.width    = CGBitmapContextGetWidth(effectCtx);
-        effect.height   = CGBitmapContextGetHeight(effectCtx);
-        effect.rowBytes = CGBitmapContextGetBytesPerRow(effectCtx);
+        if (@available(iOS 17.0, *)) {
+            UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+            format.opaque = opaque;
+            format.scale = scale;
+                
+            UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+            effectImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+                CGContextRef effectCtx = UIGraphicsGetCurrentContext();
+                CGContextScaleCTM(effectCtx, 1.0, -1.0);
+                CGContextTranslateCTM(effectCtx, 0, -size.height);
+                CGContextDrawImage(effectCtx, rect, imageRef);
+                effect.data     = CGBitmapContextGetData(effectCtx);
+                effect.width    = CGBitmapContextGetWidth(effectCtx);
+                effect.height   = CGBitmapContextGetHeight(effectCtx);
+                effect.rowBytes = CGBitmapContextGetBytesPerRow(effectCtx);
+            }];
+        } else {
+            UIGraphicsBeginImageContextWithOptions(size, opaque, scale);
+            CGContextRef effectCtx = UIGraphicsGetCurrentContext();
+            CGContextScaleCTM(effectCtx, 1.0, -1.0);
+            CGContextTranslateCTM(effectCtx, 0, -size.height);
+            CGContextDrawImage(effectCtx, rect, imageRef);
+            effect.data     = CGBitmapContextGetData(effectCtx);
+            effect.width    = CGBitmapContextGetWidth(effectCtx);
+            effect.height   = CGBitmapContextGetHeight(effectCtx);
+            effect.rowBytes = CGBitmapContextGetBytesPerRow(effectCtx);
+        }
+    
         
-        UIGraphicsBeginImageContextWithOptions(size, opaque, scale);
-        CGContextRef scratchCtx = UIGraphicsGetCurrentContext();
-        scratch.data     = CGBitmapContextGetData(scratchCtx);
-        scratch.width    = CGBitmapContextGetWidth(scratchCtx);
-        scratch.height   = CGBitmapContextGetHeight(scratchCtx);
-        scratch.rowBytes = CGBitmapContextGetBytesPerRow(scratchCtx);
+        if (@available(iOS 17.0, *)) {
+            UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+            format.opaque = opaque;
+            format.scale = scale;
+                
+            UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+            effectImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+                CGContextRef scratchCtx = UIGraphicsGetCurrentContext();
+                scratch.data     = CGBitmapContextGetData(scratchCtx);
+                scratch.width    = CGBitmapContextGetWidth(scratchCtx);
+                scratch.height   = CGBitmapContextGetHeight(scratchCtx);
+                scratch.rowBytes = CGBitmapContextGetBytesPerRow(scratchCtx);
+            }];
+        } else {
+            UIGraphicsBeginImageContextWithOptions(size, opaque, scale);
+            CGContextRef scratchCtx = UIGraphicsGetCurrentContext();
+            scratch.data     = CGBitmapContextGetData(scratchCtx);
+            scratch.width    = CGBitmapContextGetWidth(scratchCtx);
+            scratch.height   = CGBitmapContextGetHeight(scratchCtx);
+            scratch.rowBytes = CGBitmapContextGetBytesPerRow(scratchCtx);
+        }
     }
     
     input = &effect;
@@ -658,7 +840,6 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
         free(temp);
     }
     
-    
     if (hasSaturation) {
         // These values appear in the W3C Filter Effects spec:
         // https://dvcs.w3.org/hg/FXTF/raw-file/default/filters/Publish.html#grayscaleEquivalent
@@ -692,14 +873,19 @@ static NSTimeInterval _yy_CGImageSourceGetGIFFrameDelayAtIndex(CGImageSourceRef 
         CGImageRelease(effectCGImage);
     } else {
         CGImageRef effectCGImage;
-        UIImage *effectImage;
-        if (input != &effect) effectImage = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-        if (input == &effect) effectImage = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
+        if (@available(iOS 17.0, *)) {
+            
+        } else {
+            if (input != &effect) effectImage = UIGraphicsGetImageFromCurrentImageContext();
+            UIGraphicsEndImageContext();
+            if (input == &effect) effectImage = UIGraphicsGetImageFromCurrentImageContext();
+            UIGraphicsEndImageContext();
+        }
+       
         effectCGImage = effectImage.CGImage;
         outputImage = [self _yy_mergeImageRef:effectCGImage tintColor:tintColor tintBlendMode:tintBlendMode maskImage:maskImage opaque:opaque];
     }
+    
     return outputImage;
 }
 
@@ -724,28 +910,60 @@ static void _yy_cleanupBuffer(void *userData, void *buf_data) {
         return [UIImage imageWithCGImage:effectCGImage];
     }
     
-    UIGraphicsBeginImageContextWithOptions(size, opaque, scale);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    CGContextScaleCTM(context, 1.0, -1.0);
-    CGContextTranslateCTM(context, 0, -size.height);
-    if (hasMask) {
-        CGContextDrawImage(context, rect, self.CGImage);
-        CGContextSaveGState(context);
-        CGContextClipToMask(context, rect, maskImage.CGImage);
+    UIImage *outputImage;
+    if (@available(iOS 17.0, *)) {
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.opaque = opaque;
+        format.scale = scale;
+            
+        __weak typeof(self) weakSelf = self;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+        outputImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+            CGContextRef context = UIGraphicsGetCurrentContext();
+            CGContextScaleCTM(context, 1.0, -1.0);
+            CGContextTranslateCTM(context, 0, -size.height);
+            if (hasMask) {
+                CGContextDrawImage(context, rect, weakSelf.CGImage);
+                CGContextSaveGState(context);
+                CGContextClipToMask(context, rect, maskImage.CGImage);
+            }
+            CGContextDrawImage(context, rect, effectCGImage);
+            if (hasTint) {
+                CGContextSaveGState(context);
+                CGContextSetBlendMode(context, tintBlendMode);
+                CGContextSetFillColorWithColor(context, tintColor.CGColor);
+                CGContextFillRect(context, rect);
+                CGContextRestoreGState(context);
+            }
+            if (hasMask) {
+                CGContextRestoreGState(context);
+            }
+        }];
+    } else {
+        UIGraphicsBeginImageContextWithOptions(size, opaque, scale);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        CGContextScaleCTM(context, 1.0, -1.0);
+        CGContextTranslateCTM(context, 0, -size.height);
+        if (hasMask) {
+            CGContextDrawImage(context, rect, self.CGImage);
+            CGContextSaveGState(context);
+            CGContextClipToMask(context, rect, maskImage.CGImage);
+        }
+        CGContextDrawImage(context, rect, effectCGImage);
+        if (hasTint) {
+            CGContextSaveGState(context);
+            CGContextSetBlendMode(context, tintBlendMode);
+            CGContextSetFillColorWithColor(context, tintColor.CGColor);
+            CGContextFillRect(context, rect);
+            CGContextRestoreGState(context);
+        }
+        if (hasMask) {
+            CGContextRestoreGState(context);
+        }
+        outputImage = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
     }
-    CGContextDrawImage(context, rect, effectCGImage);
-    if (hasTint) {
-        CGContextSaveGState(context);
-        CGContextSetBlendMode(context, tintBlendMode);
-        CGContextSetFillColorWithColor(context, tintColor.CGColor);
-        CGContextFillRect(context, rect);
-        CGContextRestoreGState(context);
-    }
-    if (hasMask) {
-        CGContextRestoreGState(context);
-    }
-    UIImage *outputImage = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+
     return outputImage;
 }
 

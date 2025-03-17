@@ -363,11 +363,26 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
         CGSize size = [layout textBoundingSize];
         BOOL needDraw = size.width > 1 && size.height > 1;
         if (needDraw) {
-            UIGraphicsBeginImageContextWithOptions(size, NO, 0);
-            CGContextRef context = UIGraphicsGetCurrentContext();
-            [layout drawInContext:context size:size debug:self.debugOption];
-            UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-            UIGraphicsEndImageContext();
+            UIImage *image;
+            if (@available(iOS 17.0, *)) {
+                UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+                format.opaque = YES;
+                format.scale = [UIScreen mainScreen].scale;
+                    
+                __weak typeof(self) weakSelf = self;
+                UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+                image = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+                    CGContextRef context = UIGraphicsGetCurrentContext();
+                    [layout drawInContext:context size:size debug:weakSelf.debugOption];
+                }];
+            } else {
+                UIGraphicsBeginImageContextWithOptions(size, NO, 0);
+                CGContextRef context = UIGraphicsGetCurrentContext();
+                [layout drawInContext:context size:size debug:self.debugOption];
+                image = UIGraphicsGetImageFromCurrentImageContext();
+                UIGraphicsEndImageContext();
+            }
+           
             _placeHolderView.image = image;
             frame.size = image.size;
             if (container.isVerticalForm) {
